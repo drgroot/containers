@@ -144,6 +144,8 @@ class DockerBuildStepsTests(unittest.TestCase):
                     "servc/data/iac/docker username | DOCKER_USERNAME ;",
                     "servc/data/iac/docker password | DOCKER_PASSWORD ;",
                     "servc/data/iac/docker host-mirror | DOCKER_MIRROR ;",
+                    "servc/data/iac/docker mirror-username | DOCKER_MIRROR_USERNAME ;",
+                    "servc/data/iac/docker mirror-password | DOCKER_MIRROR_PASSWORD ;",
                 ]
             ),
             steps[0]["with"]["secrets"],
@@ -153,8 +155,8 @@ class DockerBuildStepsTests(unittest.TestCase):
         self.assertEqual("example/docker-images", steps[1]["env"]["PACKAGE_NAME"])
         self.assertEqual("Login to Mirror", steps[2]["name"])
         self.assertEqual("${{ steps.docker_secrets.outputs.DOCKER_MIRROR }}", steps[2]["with"]["registry"])
-        self.assertEqual("${{ steps.docker_secrets.outputs.DOCKER_USERNAME }}", steps[2]["with"]["username"])
-        self.assertEqual("${{ steps.docker_secrets.outputs.DOCKER_PASSWORD }}", steps[2]["with"]["password"])
+        self.assertEqual("${{ steps.docker_secrets.outputs.DOCKER_MIRROR_USERNAME }}", steps[2]["with"]["username"])
+        self.assertEqual("${{ steps.docker_secrets.outputs.DOCKER_MIRROR_PASSWORD }}", steps[2]["with"]["password"])
 
     def test_servc_repo_uses_vault_docker_secrets(self):
         repo = RepoContext(
@@ -179,6 +181,8 @@ class DockerBuildStepsTests(unittest.TestCase):
                     "servc/data/iac/docker username | DOCKER_USERNAME ;",
                     "servc/data/iac/docker password | DOCKER_PASSWORD ;",
                     "servc/data/iac/docker host-mirror | DOCKER_MIRROR ;",
+                    "servc/data/iac/docker mirror-username | DOCKER_MIRROR_USERNAME ;",
+                    "servc/data/iac/docker mirror-password | DOCKER_MIRROR_PASSWORD ;",
                 ]
             ),
             steps[0]["with"]["secrets"],
@@ -190,11 +194,11 @@ class DockerBuildStepsTests(unittest.TestCase):
             steps[2]["with"]["registry"],
         )
         self.assertEqual(
-            "${{ steps.docker_secrets.outputs.DOCKER_USERNAME }}",
+            "${{ steps.docker_secrets.outputs.DOCKER_MIRROR_USERNAME }}",
             steps[2]["with"]["username"],
         )
         self.assertEqual(
-            "${{ steps.docker_secrets.outputs.DOCKER_PASSWORD }}",
+            "${{ steps.docker_secrets.outputs.DOCKER_MIRROR_PASSWORD }}",
             steps[2]["with"]["password"],
         )
         self.assertEqual(

@@ -16,6 +16,8 @@ DOCKER_HOST_OUTPUT = "DOCKER_HOST"
 DOCKER_USERNAME_OUTPUT = "DOCKER_USERNAME"
 DOCKER_PASSWORD_OUTPUT = "DOCKER_PASSWORD"
 DOCKER_MIRROR_OUTPUT = "DOCKER_MIRROR"
+DOCKER_MIRROR_USERNAME_OUTPUT = "DOCKER_MIRROR_USERNAME"
+DOCKER_MIRROR_PASSWORD_OUTPUT = "DOCKER_MIRROR_PASSWORD"
 DOCKER_ARTIFACT_STEP_ID = "docker_artifact"
 
 
@@ -99,12 +101,24 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
                 "key": "host-mirror",
                 "value": DOCKER_MIRROR_OUTPUT,
             },
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "mirror-username",
+                "value": DOCKER_MIRROR_USERNAME_OUTPUT,
+            },
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "mirror-password",
+                "value": DOCKER_MIRROR_PASSWORD_OUTPUT,
+            },
         ],
     )
     docker_registry = docker_secrets[DOCKER_HOST_OUTPUT]
     docker_mirror = docker_secrets[DOCKER_MIRROR_OUTPUT]
     docker_username = docker_secrets[DOCKER_USERNAME_OUTPUT]
     docker_password = docker_secrets[DOCKER_PASSWORD_OUTPUT]
+    docker_mirror_username = docker_secrets[DOCKER_MIRROR_USERNAME_OUTPUT]
+    docker_mirror_password = docker_secrets[DOCKER_MIRROR_PASSWORD_OUTPUT]
     steps: List[STEP] = [docker_vault(ctx, m)]
 
     package_name = (
@@ -156,8 +170,8 @@ echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
                     "uses": "docker/login-action@v3",
                     "with": {
                         "registry": docker_mirror,
-                        "username": docker_username,
-                        "password": docker_password,
+                        "username": docker_mirror_username,
+                        "password": docker_mirror_password,
                     },
                 },
             ),
