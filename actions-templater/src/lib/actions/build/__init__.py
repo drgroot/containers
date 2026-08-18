@@ -101,6 +101,7 @@ def make_build(
     modifiers = {
         **modifiers,
         "workflow_action": "build",
+        "artifact": name,
     }
 
     workflow: WORKFLOW_GENERATOR = {
