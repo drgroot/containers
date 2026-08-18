@@ -13,7 +13,7 @@ jobs:
   build-docker:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         package:
           - actions-templater
@@ -43,7 +43,7 @@ jobs:
       - id: docker_secrets
         name: Read Docker credentials from Vault
         if: >-
-          (steps.changes.outputs.src == 'true' && github.ref_name == 'main') ||
+          (steps.changes.outputs.src == 'true' && github.ref == 'refs/heads/main') ||
           startsWith(github.ref, format('refs/tags/{0}-', matrix.package))
         uses: hashicorp/vault-action@v2
         with:
@@ -62,7 +62,7 @@ jobs:
           VAULT_USERNAME: ${{ steps.docker_secrets.outputs.PUBLIC_USERNAME }}
           REF_NAME: ${{ github.ref_name }}
           PACKAGE: ${{ matrix.package }}
-          PUBLISH: ${{ ((steps.changes.outputs.src == 'true' && github.ref_name == 'main') || startsWith(github.ref, format('refs/tags/{0}-', matrix.package))) && 'true' || 'false' }}
+          PUBLISH: ${{ (steps.changes.outputs.src == 'true' && github.ref == 'refs/heads/main') || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) }}
         run: |
           set -euo pipefail
 
@@ -103,6 +103,10 @@ jobs:
           echo "image=${image}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          echo "ref=${GITHUB_REF}"
+          echo "changed=${{ steps.changes.outputs.src }}"
+          echo "publish=${PUBLISH}"
+          echo "image=${image}:${version}"
 
       - name: Log in to Docker registry
         if: steps.metadata.outputs.publish == 'true'
