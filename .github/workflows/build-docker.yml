@@ -1,0 +1,116 @@
+name: build-docker
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        package:
+          - actions-templater
+          - backup-pvc
+          - coder-spark
+          - narr-trigger
+          - runner-spark
+          - runner
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - id: changes
+        name: Filter changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            src:
+              - '${{ matrix.package }}/**'
+
+      # Pull credentials only for builds that can publish. PRs get harmless
+      # local defaults, so untrusted code never receives repository secrets.
+      - id: docker_secrets
+        name: Read Docker credentials from Vault
+        if: >-
+          (steps.changes.outputs.src == 'true' && github.ref_name == 'main') ||
+          startsWith(github.ref, format('refs/tags/{0}-', matrix.package))
+        uses: hashicorp/vault-action@v2
+        with:
+          method: token
+          token: ${{ secrets.VAULT_TOKEN }}
+          url: ${{ secrets.VAULT_ADDR }}
+          secrets: |
+            servc/data/iac/docker host | DOCKER_REGISTRY ;
+            servc/data/iac/docker username | DOCKER_USERNAME ;
+            servc/data/iac/docker password | DOCKER_PASSWORD ;
+
+      - id: metadata
+        name: Set image metadata
+        env:
+          VAULT_REGISTRY: ${{ steps.docker_secrets.outputs.DOCKER_REGISTRY }}
+          VAULT_USERNAME: ${{ steps.docker_secrets.outputs.DOCKER_USERNAME }}
+          REF_NAME: ${{ github.ref_name }}
+          PACKAGE: ${{ matrix.package }}
+          PUBLISH: ${{ ((steps.changes.outputs.src == 'true' && github.ref_name == 'main') || startsWith(github.ref, format('refs/tags/{0}-', matrix.package))) && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+
+          # These values are intentionally non-routable and are used only for
+          # pull requests and other non-publishing builds.
+          registry="localhost"
+          username="dummy"
+          version="pr-${GITHUB_RUN_NUMBER}"
+
+          if [[ "$PUBLISH" == "true" ]]; then
+            registry="$VAULT_REGISTRY"
+            username="$VAULT_USERNAME"
+          fi
+
+          if [[ "$REF_NAME" == "main" ]]; then
+            version="latest"
+          elif [[ "$REF_NAME" == "$PACKAGE-"* ]]; then
+            version="${REF_NAME#"$PACKAGE-"}"
+          fi
+
+          image="${registry}/${username}/${PACKAGE}"
+          echo "registry=${registry}" >> "$GITHUB_OUTPUT"
+          echo "username=${username}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker registry
+        if: steps.metadata.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.metadata.outputs.registry }}
+          username: ${{ steps.docker_secrets.outputs.DOCKER_USERNAME }}
+          password: ${{ steps.docker_secrets.outputs.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package))
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Build and push image
+        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package))
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.package }}
+          file: ${{ matrix.package }}/Dockerfile
+          push: ${{ steps.metadata.outputs.publish == 'true' }}
+          tags: ${{ steps.metadata.outputs.image }}:${{ steps.metadata.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.package }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.package }}

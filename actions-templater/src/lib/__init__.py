@@ -1,0 +1,21 @@
+import os
+
+ACTION_DEFAULT_DEPENDABOT_INTERVAL = os.getenv(
+    "ACTION_DEFAULT_DEPENDABOT_INTERVAL", "daily"
+)
+NODEJS_VERSION = os.getenv("NODEJS_VERSION", "current") or "current"
+PYTHON_VERSION = float(os.getenv("PYTHON_VERSION", "3.13") or "3.13")
+JQ_VERSION = os.getenv("JQ_VERSION", "1.6")
+MAVEN_VERSION = os.getenv("MAVEN_VERSION", "3.9.1")
+JAVA_VERSION = os.getenv("JAVA_VERSION", "8")
+JAVA_DISTRUBUTION = os.getenv("JAVA_DISTRUBUTION", "corretto")
+JFROG_VERSION = os.getenv("JFROG_VERSION", "latest")
+YQ_VERSION = os.getenv("YQ_VERSION", "v4.44.2")
+
+
+KUBECTL_VERSION = os.getenv("KUBECTL_VERSION", "v1.24.6")
+HELM_VERSION = os.getenv("HELM_VERSION", "3.10.3")
+KUBELOGIN_VERSION = os.getenv("KUBELOGIN_VERSION", "v0.0.18")
+
+TERRAFORM_VERSION = os.getenv("TERRAFORM_VERSION", "1.6.3")
+VAULT_VERSION = os.getenv("VAULT_ACTION", "v2")

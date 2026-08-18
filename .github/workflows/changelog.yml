@@ -1,0 +1,77 @@
+name: CHANGELOG
+
+on:
+  workflow_dispatch:
+
+run-name: CHANGELOG
+
+permissions:
+  contents: write
+
+jobs:
+  changelog:
+    name: changelog
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        package:
+          - actions-templater
+          - backup-pvc
+          - coder-spark
+          - narr-trigger
+          - runner-spark
+          - runner
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+          token: ${{ github.token }}
+
+      - id: changes
+        name: Filter changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            src:
+              - '${{ matrix.package }}/**'
+
+      - id: previoustag
+        if: steps.changes.outputs.src == 'true'
+        name: Get latest tag
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          last_tag_with_prefix="$(git tag --list "${PACKAGE}-[0-9.-]*" --sort=-v:refname | head -n 1)"
+          last_tag="${last_tag_with_prefix#"${PACKAGE}-"}"
+
+          # The action uses this as its starting version when a package has
+          # not been tagged yet.
+          if [[ -z "$last_tag" || "$last_tag" == "$last_tag_with_prefix" ]]; then
+            last_tag="0.0.0"
+          fi
+
+          echo "latest tag: ${last_tag_with_prefix:-<none>}"
+          echo "fallback version: ${last_tag}"
+          echo "last_tag=${last_tag}" >> "$GITHUB_ENV"
+
+      - id: changelog
+        if: github.ref_name == 'main' && steps.changes.outputs.src == 'true'
+        name: Generate new tag
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          fallback-version: ${{ env.last_tag }}
+          git-path: ${{ matrix.package }}
+          git-url: ${{ github.server_url != 'https://github.com' && 'git.yusufali.ca' || 'github.com' }}
+          github-token: ${{ github.token }}
+          output-file: false
+          skip-ci: false
+          skip-commit: true
+          skip-version-file: true
+          tag-prefix: ${{ matrix.package }}-

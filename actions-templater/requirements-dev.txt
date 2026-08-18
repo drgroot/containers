@@ -1,0 +1,9 @@
+pyarrow-stubs
+types-PyYAML
+mypy
+coverage
+types-simplejson
+types-redis
+build
+twine
+types-requests
