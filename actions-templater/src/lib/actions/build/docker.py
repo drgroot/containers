@@ -12,7 +12,11 @@ from src.lib.actions.test.npm import NPM_VAULT_PATH
 docker_on = {**default_on, "push": {**default_on.get("push", {}), "branches": ["main"]}}
 DOCKER_VAULT_STEP_ID = "docker_secrets"
 DOCKER_VAULT_PATH = "servc/data/iac/docker"
-DOCKER_REGISTRY_OUTPUT = "DOCKER_REGISTRY"
+DOCKER_HOST_OUTPUT = "DOCKER_HOST"
+DOCKER_USERNAME_OUTPUT = "DOCKER_USERNAME"
+DOCKER_PASSWORD_OUTPUT = "DOCKER_PASSWORD"
+DOCKER_MIRROR_OUTPUT = "DOCKER_MIRROR"
+DOCKER_ARTIFACT_STEP_ID = "docker_artifact"
 
 
 def format_secret_build_args(
@@ -72,37 +76,61 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
         )
 
     build_args = format_secret_build_args(m, m.get("secrets", []))
-    docker_registry = "registry.yusufali.ca"
-    docker_mirror = "dockerhub.yusufali.ca"
-    docker_username = "${{ secrets.DOCKER_USERNAME }}"
-    docker_password = "${{ secrets.DOCKER_PASSWORD }}"
-    steps: List[STEP] = []
+    docker_secrets, docker_vault = process_vault_secrets(
+        DOCKER_VAULT_STEP_ID,
+        [
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "host",
+                "value": DOCKER_HOST_OUTPUT,
+            },
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "username",
+                "value": DOCKER_USERNAME_OUTPUT,
+            },
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "password",
+                "value": DOCKER_PASSWORD_OUTPUT,
+            },
+            {
+                "path": DOCKER_VAULT_PATH,
+                "key": "host-mirror",
+                "value": DOCKER_MIRROR_OUTPUT,
+            },
+        ],
+    )
+    docker_registry = docker_secrets[DOCKER_HOST_OUTPUT]
+    docker_mirror = docker_secrets[DOCKER_MIRROR_OUTPUT]
+    docker_username = docker_secrets[DOCKER_USERNAME_OUTPUT]
+    docker_password = docker_secrets[DOCKER_PASSWORD_OUTPUT]
+    steps: List[STEP] = [docker_vault(ctx, m)]
 
-    if is_servc(ctx, m):
-        docker_secrets, docker_vault = process_vault_secrets(
-            DOCKER_VAULT_STEP_ID,
-            [
-                {
-                    "path": DOCKER_VAULT_PATH,
-                    "key": "host",
-                    "value": DOCKER_REGISTRY_OUTPUT,
-                },
-                {
-                    "path": DOCKER_VAULT_PATH,
-                    "key": "username",
-                    "value": "DOCKER_USERNAME",
-                },
-                {
-                    "path": DOCKER_VAULT_PATH,
-                    "key": "password",
-                    "value": "DOCKER_PASSWORD",
-                },
-            ],
-        )
-        docker_registry = docker_secrets[DOCKER_REGISTRY_OUTPUT]
-        docker_username = docker_secrets["DOCKER_USERNAME"]
-        docker_password = docker_secrets["DOCKER_PASSWORD"]
-        steps.append(docker_vault(ctx, m))
+    package_name = (
+        "${{ matrix.package }}" if is_monorepo(ctx, m) else ctx.repo_name
+    )
+    steps.append(
+        {
+            "id": DOCKER_ARTIFACT_STEP_ID,
+            "name": "Set Docker Artifact",
+            "env": {
+                "DOCKER_HOST": docker_registry,
+                "DOCKER_USERNAME": docker_username,
+                "PACKAGE_NAME": package_name,
+            },
+            "run": """\
+set -euo pipefail
+
+host="${DOCKER_HOST#*://}"
+host="${host%/}"
+artifact_name="${host}/${DOCKER_USERNAME}/${PACKAGE_NAME}"
+
+echo "repository=${host}" >> "$GITHUB_ENV"
+echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
+""",
+        }
+    )
 
     matrix_prefix = "${{ matrix.package }}" if is_monorepo(ctx, m) else ""
     build_push_inputs = {
