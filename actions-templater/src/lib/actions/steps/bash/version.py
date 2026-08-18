@@ -16,6 +16,7 @@ considerations:
 
 def get_version_f(ctx: RepoContext, m: MODIFIERS) -> STEP:
     tag_prefix = m.get("tag_prefix", "")
+    is_docker_build = m.get("artifact") == "docker"
     artifact_name = f"{m.get('artifactname', ctx.repo_full_name)}"
     if is_monorepo(ctx, m):
         artifact_name = os.path.join(ctx.repo_owner, "${{ matrix.package }}")
@@ -27,11 +28,6 @@ def get_version_f(ctx: RepoContext, m: MODIFIERS) -> STEP:
             "PREFIX": tag_prefix,
             "REF_LONG": "${{ github.ref }}",
             "REF_SHORT": "${{ github.ref_name }}",
-            "PROD_REPOSITORY": str(m.get("prod_repository", m.get("repository", ""))),
-            "NONPROD_REPOSITORY": str(
-                m.get("nonprod_repository", m.get("repository", ""))
-            ),
-            "ARTIFACT_NAME": artifact_name,
         },
         "run": """\
 REPO=$NONPROD_REPOSITORY
@@ -52,6 +48,31 @@ echo artifactname=$ARTIFACT_NAME >> $GITHUB_ENV
 echo repository=$REPO >> $GITHUB_ENV
 echo current_version=$CURRENT_VERSION >> $GITHUB_ENV""",
     }
+
+    if is_docker_build:
+        step["run"] = """\
+CURRENT_VERSION="0.0.1"
+if [[ "$REF_LONG" == "refs/tags/${PREFIX}"[0-9.-]* ]]; then
+    CURRENT_VERSION="${REF_LONG#refs/tags/${PREFIX}}"
+elif [[ $REF_SHORT == "main" ]]; then
+    git fetch --prune
+    CURRENT_VERSION="latest"
+fi
+
+echo $CURRENT_VERSION
+echo current_version=$CURRENT_VERSION >> $GITHUB_ENV"""
+    else:
+        step["env"].update(
+            {
+                "PROD_REPOSITORY": str(
+                    m.get("prod_repository", m.get("repository", ""))
+                ),
+                "NONPROD_REPOSITORY": str(
+                    m.get("nonprod_repository", m.get("repository", ""))
+                ),
+                "ARTIFACT_NAME": artifact_name,
+            }
+        )
 
     return cast(STEP, step)
 
