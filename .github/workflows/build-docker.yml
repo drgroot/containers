@@ -51,9 +51,9 @@ jobs:
           token: ${{ secrets.VAULT_TOKEN }}
           url: ${{ secrets.VAULT_ADDR }}
           secrets: |
-            vendor/data/docker public-host | PUBLIC_HOST ;
-            vendor/data/docker public-username | PUBLIC_USERNAME ;
-            vendor/data/docker public-password | PUBLIC_PASSWORD ;
+            external-infra/data/vendor/docker public-host | PUBLIC_HOST ;
+            external-infra/data/vendor/docker public-username | PUBLIC_USERNAME ;
+            external-infra/data/vendor/docker public-password | PUBLIC_PASSWORD ;
 
       - id: metadata
         name: Set image metadata
