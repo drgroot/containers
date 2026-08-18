@@ -12,10 +12,10 @@ from src.lib.actions.test.npm import NPM_VAULT_PATH
 docker_on = {**default_on, "push": {**default_on.get("push", {}), "branches": ["main"]}}
 DOCKER_VAULT_STEP_ID = "docker_secrets"
 DOCKER_VAULT_PATH = "servc/data/iac/docker"
-DOCKER_HOST_OUTPUT = "DOCKER_HOST"
+DOCKER_REGISTRY_HOST_OUTPUT = "DOCKER_REGISTRY_HOST"
 DOCKER_USERNAME_OUTPUT = "DOCKER_USERNAME"
 DOCKER_PASSWORD_OUTPUT = "DOCKER_PASSWORD"
-DOCKER_MIRROR_OUTPUT = "DOCKER_MIRROR"
+DOCKER_MIRROR_HOST_OUTPUT = "DOCKER_MIRROR_HOST"
 DOCKER_MIRROR_USERNAME_OUTPUT = "DOCKER_MIRROR_USERNAME"
 DOCKER_MIRROR_PASSWORD_OUTPUT = "DOCKER_MIRROR_PASSWORD"
 DOCKER_ARTIFACT_STEP_ID = "docker_artifact"
@@ -84,7 +84,7 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
             {
                 "path": DOCKER_VAULT_PATH,
                 "key": "host",
-                "value": DOCKER_HOST_OUTPUT,
+                "value": DOCKER_REGISTRY_HOST_OUTPUT,
             },
             {
                 "path": DOCKER_VAULT_PATH,
@@ -99,7 +99,7 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
             {
                 "path": DOCKER_VAULT_PATH,
                 "key": "host-mirror",
-                "value": DOCKER_MIRROR_OUTPUT,
+                "value": DOCKER_MIRROR_HOST_OUTPUT,
             },
             {
                 "path": DOCKER_VAULT_PATH,
@@ -113,8 +113,8 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
             },
         ],
     )
-    docker_registry = docker_secrets[DOCKER_HOST_OUTPUT]
-    docker_mirror = docker_secrets[DOCKER_MIRROR_OUTPUT]
+    docker_registry = docker_secrets[DOCKER_REGISTRY_HOST_OUTPUT]
+    docker_mirror = docker_secrets[DOCKER_MIRROR_HOST_OUTPUT]
     docker_username = docker_secrets[DOCKER_USERNAME_OUTPUT]
     docker_password = docker_secrets[DOCKER_PASSWORD_OUTPUT]
     docker_mirror_username = docker_secrets[DOCKER_MIRROR_USERNAME_OUTPUT]
@@ -129,16 +129,16 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
             "id": DOCKER_ARTIFACT_STEP_ID,
             "name": "Set Docker Artifact",
             "env": {
-                "DOCKER_HOST": docker_registry,
+                "DOCKER_REGISTRY_HOST": docker_registry,
                 "DOCKER_USERNAME": docker_username,
                 "PACKAGE_NAME": package_name,
             },
             "run": """\
 set -euo pipefail
 
-host="${DOCKER_HOST#*://}"
+host="${DOCKER_REGISTRY_HOST#*://}"
 host="${host%/}"
-artifact_name="${host}/${DOCKER_USERNAME}/${PACKAGE_NAME}"
+artifact_name="${DOCKER_USERNAME}/${PACKAGE_NAME}"
 
 echo "repository=${host}" >> "$GITHUB_ENV"
 echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
