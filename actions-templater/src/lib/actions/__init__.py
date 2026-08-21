@@ -14,7 +14,6 @@ from src.lib.actions.common.agent import (
 )
 from src.lib.actions.common.commit import commtlint
 from src.lib.actions.common.semver import changelog
-from src.lib.actions.dependabot import dependabot_auto_merge
 from src.lib.actions.python_static import python_pip_options_static
 from src.lib.actions.test.npm import npm_test
 from src.lib.actions.test.python import python_test
@@ -23,7 +22,6 @@ GITHUB_ACTIONS_INVENTORY: List[WORKFLOW_GENERATOR] = [
     commtlint,
     issue_agent,
     issue_agent_servc,
-    dependabot_auto_merge,
     python_docker,
     pip_build,
     npm_build,

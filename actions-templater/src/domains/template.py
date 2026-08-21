@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from pydantic import ValidationError
@@ -16,6 +17,7 @@ from src.com.run import (
 )
 from src.config import CHANGE_BRANCH
 from src.get_workflows import get_workflows
+from src.lib.actions.dependabot import DEPENDABOT_AUTO_MERGE_FILENAME
 from src.writeyaml import write_dependabot, write_workflow_file
 
 
@@ -56,6 +58,13 @@ def template_github_actions(
 
     checkout(target_branch)
     changed_files = 0
+
+    auto_merge_file = os.path.join(local_path, DEPENDABOT_AUTO_MERGE_FILENAME)
+    if os.path.exists(auto_merge_file):
+        os.remove(auto_merge_file)
+        changed_files += 1
+        print(f"Deleted {DEPENDABOT_AUTO_MERGE_FILENAME}", flush=True)
+
     for workflow in workflows:
         changed_files += write_workflow_file(repo_context, workflow, local_path)
     changed_files += write_dependabot(repo_context, dependabot, local_path)
