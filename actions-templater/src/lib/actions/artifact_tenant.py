@@ -190,7 +190,8 @@ def artifact_tenant_unit_workflow(ctx: RepoContext, m: MODIFIERS) -> Workflow:
         "mono": False,
         "artifact": "pip",
         "python_version": m.get("python_version", PYTHON_VERSION),
-        "ci_folder_typecheck": tenant_name(ctx),
+        "ci_folder_typecheck": tenant_name(ctx).replace("-", "_"),
+        "ci_typecheck_only": True,
     }
     typings = _scope_job(
         ctx,
