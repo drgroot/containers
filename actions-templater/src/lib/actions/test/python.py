@@ -35,12 +35,13 @@ def python_test_steps(ctx: RepoContext, m: MODIFIERS) -> FLIGHT:
         },
     ]
     if not m.get("ci_typecheck_only"):
+        coverage_fail_under = m.get("coverage_fail_under", 70)
         steps.append(
             {
                 "name": "Run Tests",
-                "run": """\
+                "run": f"""\
 .venv/bin/python -m coverage run -m unittest discover -s tests -p "test_*.py"
-.venv/bin/python -m coverage report -m --fail-under=70
+.venv/bin/python -m coverage report -m --fail-under={coverage_fail_under}
 """,
             }
         )

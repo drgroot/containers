@@ -235,4 +235,4 @@ docker = make_build(
 
 python_docker = make_docker_language("python", [])
 
-node_docker = make_docker_language("node", [("node/Dockerfile", "Dockerfile")])
+node_docker = make_docker_language("node", [])
