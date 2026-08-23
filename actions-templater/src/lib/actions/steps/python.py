@@ -11,11 +11,12 @@ python -m venv .venv
 if [ -n "$EXTRA_MODULES" ]; then
     .venv/bin/python -m pip install $EXTRA_MODULES
 fi
-if [ -f ../pip-options.txt ]; then
-    cp ../pip-options.txt .
-fi
 if [ ! -f pip-options.txt ]; then
-    touch pip-options.txt
+  if [ -f ../pip-options.txt ]; then
+    cp ../pip-options.txt .
+  fi
+
+  touch pip-options.txt
 fi
 
 .venv/bin/python -m pip install -r requirements.txt -r pip-options.txt
