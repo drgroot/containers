@@ -84,6 +84,7 @@ changelog: WORKFLOW_GENERATOR = {
     "context_matchers": None,
     "negative_matchers": {
         "changelog": ["false"],
+        "artifact": ["tenant"],
     },
     "filename": ".github/workflows/changelog.yml",
     "static": [],

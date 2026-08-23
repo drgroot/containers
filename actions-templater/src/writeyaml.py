@@ -83,6 +83,7 @@ def write_static_files(
     if isinstance(static_path, str):
         return write_static_files(repodir, (static_path, static_path), repo)
     local_static_ref, target_static_ref = static_path
+    target_static_ref = Template(target_static_ref).safe_substitute(**repo.model_dump())
 
     static_root = os.path.join(CWD, "static")
     local_path = os.path.join(static_root, local_static_ref)
