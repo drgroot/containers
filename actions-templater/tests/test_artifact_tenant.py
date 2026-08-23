@@ -96,12 +96,12 @@ class ArtifactTenantBuildTests(unittest.TestCase):
             typings_publish["if"],
         )
 
-    def test_static_standard_files_are_written_inside_components(self):
+    def test_static_standard_files_are_written_without_dockerfiles(self):
         repo = make_repo()
         with tempfile.TemporaryDirectory() as repo_dir:
             write_workflow_file(repo, artifact_tenant_build, repo_dir)
 
-            self.assertTrue(os.path.isfile(os.path.join(repo_dir, "ui/Dockerfile")))
+            self.assertFalse(os.path.exists(os.path.join(repo_dir, "ui/Dockerfile")))
             self.assertTrue(
                 os.path.isfile(os.path.join(repo_dir, "etl/pip-options.txt"))
             )

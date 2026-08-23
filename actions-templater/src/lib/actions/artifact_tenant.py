@@ -234,7 +234,6 @@ artifact_tenant_build: WORKFLOW_GENERATOR = {
     "negative_matchers": None,
     "filename": BUILD_WORKFLOW,
     "static": [
-        ("node/Dockerfile", "ui/Dockerfile"),
         ("python/pip-options.txt", "etl/pip-options.txt"),
         ("python/pip-options.txt", "typings/pip-options.txt"),
     ],

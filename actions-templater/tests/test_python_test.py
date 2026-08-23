@@ -131,6 +131,20 @@ class PythonDockerTestWorkflowTests(unittest.TestCase):
         self.assertTrue(type_check_step["run"].startswith(".venv/bin/python -m mypy"))
         self.assertIn(".venv/bin/python -m coverage run", test_step["run"])
         self.assertIn(".venv/bin/python -m coverage report", test_step["run"])
+        self.assertIn("--fail-under=70", test_step["run"])
+
+    def test_python_coverage_threshold_can_be_configured(self):
+        repo = RepoContext(
+            source="github",
+            repo_full_name="example/python-api",
+            repo_name="python-api",
+            clone_url="https://example.com/python-api.git",
+        )
+
+        steps = python_test_steps(repo, {"coverage_fail_under": 85})
+        test_step = next(step for step in steps if step.get("name") == "Run Tests")
+
+        self.assertIn("--fail-under=85", test_step["run"])
 
     def test_docker_base_image_version_check_supports_other_images(self):
         repo = RepoContext(
