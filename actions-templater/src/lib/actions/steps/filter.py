@@ -5,10 +5,14 @@ from src.com.repo import MODIFIERS, RepoContext
 
 
 def filter_f(ctx: RepoContext, m: MODIFIERS):
-    prefix = os.path.join(m.get("monorepo-folder", ""), "${{ matrix.package }}")
-    sub_folders = []
-    for folder in m.get("sub_folders", "").split(";"):
-        sub_folders.append("  - " + os.path.join(prefix, folder, "**"))
+    filter_paths = m.get("filter_paths")
+    if filter_paths is not None:
+        sub_folders = ["  - " + path for path in filter_paths]
+    else:
+        prefix = os.path.join(m.get("monorepo-folder", ""), "${{ matrix.package }}")
+        sub_folders = []
+        for folder in m.get("sub_folders", "").split(";"):
+            sub_folders.append("  - " + os.path.join(prefix, folder, "**"))
     sub_folders.extend(m.get("append_filter", []))
 
     step = {

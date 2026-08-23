@@ -48,4 +48,5 @@ python_test = make_test(
     context={
         "language": ["python"],
     },
+    negative_matchers={"artifact": ["tenant"]},
 )

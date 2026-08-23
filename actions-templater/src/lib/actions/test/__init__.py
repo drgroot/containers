@@ -85,6 +85,7 @@ def make_test(
     steps: FLIGHT_GENERATOR,
     context: CONTEXT_MATCHERS = {},
     modifiers: MODIFIERS = {},
+    negative_matchers: CONTEXT_MATCHERS = None,
 ) -> WORKFLOW_GENERATOR:
     if context is None:
         context = {}
@@ -108,7 +109,7 @@ def make_test(
         "context_matchers": {
             **context,
         },
-        "negative_matchers": None,
+        "negative_matchers": negative_matchers,
         "filename": ".github/workflows/unit.yml",
         "static": [],
         "function": build_workflow,

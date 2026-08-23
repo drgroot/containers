@@ -56,4 +56,5 @@ npm_test = make_test(
     context={
         "language": ["typescript"],
     },
+    negative_matchers={"artifact": ["tenant"]},
 )

@@ -1,6 +1,11 @@
 from typing import List
 
 from src.com.actions.workflow import WORKFLOW_GENERATOR
+from src.lib.actions.artifact_tenant import (
+    artifact_tenant_build,
+    artifact_tenant_changelog,
+    artifact_tenant_unit,
+)
 from src.lib.actions.build.docker import docker, node_docker, python_docker
 from src.lib.actions.build.npm import npm_build
 from src.lib.actions.build.pip import pip_build
@@ -19,6 +24,9 @@ from src.lib.actions.test.npm import npm_test
 from src.lib.actions.test.python import python_test
 
 GITHUB_ACTIONS_INVENTORY: List[WORKFLOW_GENERATOR] = [
+    artifact_tenant_build,
+    artifact_tenant_unit,
+    artifact_tenant_changelog,
     commtlint,
     issue_agent,
     issue_agent_servc,

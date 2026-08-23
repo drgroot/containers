@@ -7,6 +7,12 @@ from src.com.run import get_children
 
 
 def get_monorepo_modules(ctx: RepoContext, m: MODIFIERS) -> List[str]:
+    configured_modules = m.get("monorepo-modules")
+    if isinstance(configured_modules, list) and all(
+        isinstance(module, str) for module in configured_modules
+    ):
+        return configured_modules
+
     module_path = os.path.join(ctx.local_folder, m.get("monorepo-folder", ""))
     return get_children(module_path)
 

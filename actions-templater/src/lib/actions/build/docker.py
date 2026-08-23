@@ -121,8 +121,9 @@ def docker_build_steps(ctx: RepoContext, m: MODIFIERS) -> List[STEP]:
     docker_mirror_password = docker_secrets[DOCKER_MIRROR_PASSWORD_OUTPUT]
     steps: List[STEP] = [docker_vault(ctx, m)]
 
-    package_name = (
-        "${{ matrix.package }}" if is_monorepo(ctx, m) else ctx.repo_name
+    package_name = m.get(
+        "artifactname",
+        "${{ matrix.package }}" if is_monorepo(ctx, m) else ctx.repo_name,
     )
     steps.append(
         {
