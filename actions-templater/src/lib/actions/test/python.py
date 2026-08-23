@@ -25,7 +25,7 @@ def docker_python_version_check(ctx: RepoContext, m: MODIFIERS) -> FLIGHT:
 
 
 def python_test_steps(ctx: RepoContext, m: MODIFIERS) -> FLIGHT:
-    return [
+    steps: FLIGHT = [
         python(ctx, m),
         *docker_python_version_check(ctx, m),
         pip_install(ctx, m),
@@ -33,14 +33,18 @@ def python_test_steps(ctx: RepoContext, m: MODIFIERS) -> FLIGHT:
             "name": "Type Check",
             "run": f".venv/bin/python -m mypy {m.get("ci_folder_typecheck", "*.py")} --check-untyped-defs",
         },
-        {
-            "name": "Run Tests",
-            "run": """\
+    ]
+    if not m.get("ci_typecheck_only"):
+        steps.append(
+            {
+                "name": "Run Tests",
+                "run": """\
 .venv/bin/python -m coverage run -m unittest discover -s tests -p "test_*.py"
 .venv/bin/python -m coverage report -m --fail-under=70
 """,
-        },
-    ]
+            }
+        )
+    return steps
 
 
 python_test = make_test(

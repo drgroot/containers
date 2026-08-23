@@ -159,15 +159,29 @@ class ArtifactTenantUnitTests(unittest.TestCase):
             [step.get("name") for step in typings["steps"]],
         )
         self.assertIn("-m mypy acme ", named_step(typings, "Type Check")["run"])
-        self.assertEqual(
-            "typings",
-            named_step(typings, "Run Tests")["working-directory"],
+        self.assertNotIn(
+            "Run Tests",
+            [step.get("name") for step in typings["steps"]],
         )
 
         for component, job in [("ui", ui), ("etl", etl), ("typings", typings)]:
             filters = named_step(job, "Filter Changes")["with"]["filters"]
             self.assertIn(f"{component}/**", filters)
             self.assertIn(".github/workflows/unit.yml", filters)
+
+    def test_typings_typecheck_uses_underscored_repo_name(self):
+        repo = RepoContext(
+            source="github",
+            repo_full_name="serv-c/tenant-mmm",
+            repo_name="tenant-mmm",
+            repo_owner="serv-c",
+            clone_url="https://example.com/tenant-mmm.git",
+            local_folder="",
+            artifact="tenant",
+        )
+        workflow = artifact_tenant_unit["function"](repo, {})
+        typings = workflow["jobs"]["unit-typings"]
+        self.assertIn("-m mypy tenant_mmm ", named_step(typings, "Type Check")["run"])
 
 
 class ArtifactTenantChangelogTests(unittest.TestCase):
