@@ -47,7 +47,11 @@ def file_copy(repo: RepoContext, src: Any, dest: TextIOWrapper) -> None:
     if not isinstance(src, str):
         raise Exception("File copy only supports string paths")
     with open(src, "r") as f:
-        dest.write(Template(f.read()).safe_substitute(**repo.model_dump()))
+        content = f.read()
+    if os.path.basename(src).lower().startswith("dockerfile"):
+        dest.write(content)
+    else:
+        dest.write(Template(content).safe_substitute(**repo.model_dump()))
 
 
 def write_yaml(
