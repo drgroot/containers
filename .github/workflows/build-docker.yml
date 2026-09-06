@@ -47,7 +47,7 @@ jobs:
         if: >-
           (steps.changes.outputs.src == 'true' && github.ref == 'refs/heads/main') ||
           startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) ||
-          (github.event_name == 'schedule' && matrix.package == 'coder-spark')
+          (github.event_name == 'schedule')
         uses: hashicorp/vault-action@v2
         with:
           method: token
@@ -65,7 +65,7 @@ jobs:
           VAULT_USERNAME: ${{ steps.docker_secrets.outputs.PUBLIC_USERNAME }}
           REF_NAME: ${{ github.ref_name }}
           PACKAGE: ${{ matrix.package }}
-          PUBLISH: ${{ (steps.changes.outputs.src == 'true' && github.ref == 'refs/heads/main') || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule' && matrix.package == 'coder-spark') }}
+          PUBLISH: ${{ (steps.changes.outputs.src == 'true' && github.ref == 'refs/heads/main') || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule') }}
         run: |
           set -euo pipefail
 
@@ -120,13 +120,13 @@ jobs:
           password: ${{ steps.docker_secrets.outputs.PUBLIC_PASSWORD }}
 
       - name: Set up Docker Buildx
-        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule' && matrix.package == 'coder-spark')
+        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule')
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker-container
 
       - name: Build and push image
-        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule' && matrix.package == 'coder-spark')
+        if: steps.changes.outputs.src == 'true' || startsWith(github.ref, format('refs/tags/{0}-', matrix.package)) || (github.event_name == 'schedule')
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.package }}
