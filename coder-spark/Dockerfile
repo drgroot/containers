@@ -1,5 +1,5 @@
 FROM rclone/rclone AS rclone
-FROM spark:3.5.6 AS spark
+FROM spark:4.2.0 AS spark
 
 # base image for coder
 FROM codercom/code-server

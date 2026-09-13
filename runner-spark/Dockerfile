@@ -1,4 +1,4 @@
-FROM spark:3.5.6 AS spark-image
+FROM spark:4.2.0 AS spark-image
 
 # base image for runner
 FROM yusufali/runner
