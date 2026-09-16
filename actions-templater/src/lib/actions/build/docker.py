@@ -155,7 +155,7 @@ echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
             if matrix_prefix
             else m.get("dockerfile", "Dockerfile")
         ),
-        "push": "${{ (github.ref_name == 'main' || github.ref_type == 'tag') && 'true' || 'false' }}",
+        "outputs": "${{ (github.ref_name == 'main' || github.ref_type == 'tag') && 'type=registry' || 'type=cacheonly' }}",
         "tags": "${{ env.repository }}/${{ env.artifactname }}:${{ env.current_version }}",
     }
 
