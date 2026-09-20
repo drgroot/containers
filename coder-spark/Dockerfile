@@ -11,7 +11,7 @@ COPY --from=spark /opt/spark /opt/spark
 COPY --from=spark /opt/java /opt/java
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV DUCKDB_HOME=/opt/duckdb/.duckdb/cli/latest
+ENV DUCKDB_HOME=/opt/duckdb/current
 ENV PYENV_ROOT="/opt/pyenv"
 ENV JAVA_HOME=/opt/java/openjdk
 ENV SPARK_HOME=/opt/spark
@@ -81,7 +81,7 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
 
 # install duckdb
 RUN mkdir -p /opt/duckdb && \
-    bash -lc 'set -euo pipefail; export HOME=/opt/duckdb; curl -fsSL https://install.duckdb.org | bash' && \
+    bash -lc 'set -euo pipefail; export HOME=/opt/duckdb; curl -fsSL https://install.duckdb.org | bash; target=$(readlink -f /opt/duckdb/.duckdb/cli/latest); ln -sfn "$target" /opt/duckdb/current' && \
     ln -sf "$DUCKDB_HOME/duckdb" /usr/local/bin/duckdb
 
 # install python
@@ -111,7 +111,6 @@ RUN apt-get remove -y nano*
 
 USER coder
 
-ENV DUCKDB_HOME=/opt/duckdb/.duckdb/cli/latest
 ENV PYENV_ROOT="/opt/pyenv"
 ENV JAVA_HOME=/opt/java/openjdk
 ENV SPARK_HOME=/opt/spark
