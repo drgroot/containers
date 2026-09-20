@@ -117,5 +117,5 @@ ENV PYENV_ROOT="/opt/pyenv"
 ENV JAVA_HOME=/opt/java/openjdk
 ENV SPARK_HOME=/opt/spark
 ENV CUDA_HOME=/usr/local/cuda-12.8
-ENV PATH=${CUDA_HOME}/bin:${DUCKDB_HOME}:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
+ENV PATH=${CUDA_HOME}/bin:/opt/duckdb/current:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
 ENV LD_LIBRARY_PATH="${CUDA_HOME}/lib64"
