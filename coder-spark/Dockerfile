@@ -81,8 +81,7 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
 
 # install duckdb
 RUN mkdir -p /opt/duckdb && \
-    bash -lc 'set -euo pipefail; export HOME=/opt/duckdb; curl -fsSL https://install.duckdb.org | bash; target=$(readlink -f /opt/duckdb/.duckdb/cli/latest); ln -sfn "$target" /opt/duckdb/current' && \
-    ln -sf "$DUCKDB_HOME/duckdb" /usr/local/bin/duckdb
+    bash -lc 'set -euo pipefail; export HOME=/opt/duckdb; curl -fsSL https://install.duckdb.org | bash; target=$(readlink -f /opt/duckdb/.duckdb/cli/latest); binary=$(readlink -f /opt/duckdb/.duckdb/cli/latest/duckdb); ln -sfn "$target" /opt/duckdb/current; ln -sfn "$binary" /usr/local/bin/duckdb'
 
 # install python
 RUN git clone https://github.com/pyenv/pyenv.git /opt/pyenv
@@ -102,7 +101,10 @@ RUN mkdir -p $NVM_DIR && \
     npm install -g @openai/codex
 
 # setup main bashrc
-RUN echo 'export PATH=$DUCKDB_HOME:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH:$HOME/bin:/common-bin/bin' >> /etc/profile.d/spark.sh
+RUN printf '%s\n' \
+    'export DUCKDB_HOME=/opt/duckdb/current' \
+    'export PATH=$DUCKDB_HOME:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH:$HOME/bin:/common-bin/bin' \
+    >> /etc/profile.d/spark.sh
 
 RUN mkdir -p /opt/spark/conf
 RUN chown -R coder /opt/pyenv /opt/spark/conf /usr/local/nvm
