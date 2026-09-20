@@ -81,8 +81,7 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
 
 # install duckdb
 RUN mkdir -p /opt/duckdb && \
-    export HOME=/opt/duckdb && \
-    curl https://install.duckdb.org | bash && \
+    bash -lc 'set -euo pipefail; export HOME=/opt/duckdb; curl -fsSL https://install.duckdb.org | bash' && \
     ln -sf "$DUCKDB_HOME/duckdb" /usr/local/bin/duckdb
 
 # install python
