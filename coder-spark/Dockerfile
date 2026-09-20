@@ -11,11 +11,12 @@ COPY --from=spark /opt/spark /opt/spark
 COPY --from=spark /opt/java /opt/java
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DUCKDB_HOME=/opt/duckdb/.duckdb/cli/latest
 ENV PYENV_ROOT="/opt/pyenv"
 ENV JAVA_HOME=/opt/java/openjdk
 ENV SPARK_HOME=/opt/spark
 ENV NVM_DIR=/usr/local/nvm
-ENV PATH=$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
+ENV PATH=$DUCKDB_HOME:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -78,6 +79,12 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
     sudo sh ./get-docker.sh && \
     rm get-docker.sh
 
+# install duckdb
+RUN mkdir -p /opt/duckdb && \
+    export HOME=/opt/duckdb && \
+    curl https://install.duckdb.org | bash && \
+    ln -sf "$DUCKDB_HOME/duckdb" /usr/local/bin/duckdb
+
 # install python
 RUN git clone https://github.com/pyenv/pyenv.git /opt/pyenv
 RUN eval "$(pyenv init -)" && \
@@ -96,7 +103,7 @@ RUN mkdir -p $NVM_DIR && \
     npm install -g @openai/codex
 
 # setup main bashrc
-RUN echo 'export PATH=$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH:$HOME/bin:/common-bin/bin' >> /etc/profile.d/spark.sh
+RUN echo 'export PATH=$DUCKDB_HOME:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH:$HOME/bin:/common-bin/bin' >> /etc/profile.d/spark.sh
 
 RUN mkdir -p /opt/spark/conf
 RUN chown -R coder /opt/pyenv /opt/spark/conf /usr/local/nvm
@@ -105,9 +112,10 @@ RUN apt-get remove -y nano*
 
 USER coder
 
+ENV DUCKDB_HOME=/opt/duckdb/.duckdb/cli/latest
 ENV PYENV_ROOT="/opt/pyenv"
 ENV JAVA_HOME=/opt/java/openjdk
 ENV SPARK_HOME=/opt/spark
 ENV CUDA_HOME=/usr/local/cuda-12.8
-ENV PATH=${CUDA_HOME}/bin:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
+ENV PATH=${CUDA_HOME}/bin:${DUCKDB_HOME}:$PYENV_ROOT/bin:$SPARK_HOME/bin:$JAVA_HOME/bin:$PATH
 ENV LD_LIBRARY_PATH="${CUDA_HOME}/lib64"
