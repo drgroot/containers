@@ -162,6 +162,10 @@ echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
     if build_args:
         build_push_inputs["build-args"] = "\n".join(build_args)
 
+    arm_enabled = m.get("arm_enable") is True
+    if arm_enabled:
+        build_push_inputs["platforms"] = "linux/amd64,linux/arm64"
+
     steps.extend(
         [
             cast(
@@ -187,6 +191,19 @@ echo "artifactname=${artifact_name}" >> "$GITHUB_ENV"
                         "password": docker_password,
                     },
                 },
+            ),
+            *(
+                [
+                    cast(
+                        UsesStep,
+                        {
+                            "name": "Set up QEMU",
+                            "uses": "docker/setup-qemu-action@v3",
+                        },
+                    )
+                ]
+                if arm_enabled
+                else []
             ),
             cast(
                 UsesStep,
