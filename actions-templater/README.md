@@ -11,3 +11,7 @@ repository's `.github/actions.json`:
 
 When the setting is absent or `false`, the Docker workflow uses its existing
 single-platform build.
+
+You can also add the repository topic `arm-true` to enable the same build.
+The topic `arm-false` disables it. If both a topic and `actions.json` set this
+option, the value in `actions.json` takes precedence.

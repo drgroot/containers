@@ -1,5 +1,6 @@
 import requests
 
+from src.com.repo.topics import parse_topic
 from src.config import REPO_SOURCE_MAP
 from src.domains.template import template_github_actions
 from src.lib import NODEJS_VERSION, PYTHON_VERSION
@@ -8,11 +9,6 @@ ORG_MAP = {
     "gitea": ["serv-c"],
     "github": ["serv-c"],
 }
-TOPIC_MAP = {
-    "lang": "language",
-    "vp": "version_prefix",
-}
-
 defaults = {
     "python_version": PYTHON_VERSION,
     "node_version": NODEJS_VERSION,
@@ -35,10 +31,9 @@ def process_repo(repo):
     if "ignore" in topics:
         return None
     for topic in topics:
-        if "-" in topic:
-            key, value = topic.split("-")
-            if key in TOPIC_MAP:
-                key = TOPIC_MAP[key]
+        parsed = parse_topic(topic)
+        if parsed is not None:
+            key, value = parsed
             context[key] = value
     return context
 
