@@ -62,10 +62,20 @@ def make_build_flight(steps: FLIGHT_GENERATOR) -> FLIGHT_GENERATOR:
         if is_monorepo(ctx, m):
             new_modifiers["tag_prefix"] = "${{ matrix.package }}-"
 
-        steps_build = [get_version_step(ctx, new_modifiers), *steps(ctx, new_modifiers)]
+        package_steps = steps(ctx, new_modifiers)
+        # Reading a Python project version must use the configured interpreter.
+        runtime_setup = []
+        if new_modifiers.get("version_file"):
+            runtime_setup = [step for step in package_steps if str(step.get("uses", "")).startswith("actions/setup-python@")]
+            package_steps = [step for step in package_steps if step not in runtime_setup]
+        steps_build = [*runtime_setup, get_version_step(ctx, new_modifiers), *package_steps]
 
         if is_monorepo(ctx, new_modifiers):
             transform_steps(steps_build, ctx, new_modifiers)
+        else:
+            for step in steps_build:
+                if step.get("working-directory") == "":
+                    del step["working-directory"]
 
         return [*SETUP_BUILD(ctx, new_modifiers), *steps_build]
 

@@ -6,6 +6,7 @@ from src.com.repo import MODIFIERS, RepoContext
 
 PIP_VAULT_STEP_ID = "pip_secrets"
 PIP_VAULT_PATH = "servc/data/iac/pip"
+PUBLISH_IF = "github.ref_type == 'tag' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')"
 
 
 def make_pip_build(ctx: RepoContext, m: MODIFIERS):
@@ -30,6 +31,8 @@ def make_pip_build(ctx: RepoContext, m: MODIFIERS):
         ],
     )
 
+    vault = pip_vault(ctx, m)
+    vault["if"] = PUBLISH_IF
     return [
         python(ctx, m),
         pip_install(ctx, m),
@@ -38,22 +41,26 @@ def make_pip_build(ctx: RepoContext, m: MODIFIERS):
             "env": {
                 "TAG": "${{ env.current_version }}",
             },
-            "run": 'sed -i "s/version = .*/version = \\\"$TAG\\\"/g" pyproject.toml && cat pyproject.toml',
+            "run": 'sed -i "s/^version = .*/version = \\"$TAG\\"/" pyproject.toml',
         },
         {
             "name": "Build Package",
             "run": ".venv/bin/python -m build",
         },
-        pip_vault(ctx, m),
+        {
+            "name": "Check Package",
+            "run": ".venv/bin/python -m twine check dist/*",
+        },
+        vault,
         {
             "name": "Publish Package",
-            "if": "github.ref_type == 'tag'",
-            "run": (
-                ".venv/bin/python -m twine upload --verbose dist/* --non-interactive "
-                f"-u{pip_secrets['PYPI_USERNAME']} "
-                f"-p{pip_secrets['PYPI_TOKEN']} "
-                f"--repository-url {pip_secrets['PYPI_URL']}"
-            ),
+            "if": PUBLISH_IF,
+            "env": {
+                "TWINE_USERNAME": pip_secrets["PYPI_USERNAME"],
+                "TWINE_PASSWORD": pip_secrets["PYPI_TOKEN"],
+                "TWINE_REPOSITORY_URL": pip_secrets["PYPI_URL"],
+            },
+            "run": ".venv/bin/python -m twine upload --non-interactive dist/*",
         },
     ]
 

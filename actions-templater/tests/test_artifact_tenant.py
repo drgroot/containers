@@ -1,3 +1,11 @@
+"""Scenarios:
+- sc1 (normal): Tenant context selects the composite workflows.
+- sc2 (normal): UI, ETL, pip, and Node.js builds have independent scoped jobs.
+- sc3 (normal): Standard pip index files are written without replacing Dockerfiles.
+- sc4 (normal): Component unit-test jobs apply configuration only where requested.
+- sc5 (edge): Hyphenated repository names become underscored typings modules.
+- sc6 (normal): Changelog releases share the UI, ETL, and typings tag prefixes.
+"""
 import os
 import tempfile
 import unittest
@@ -31,6 +39,7 @@ def named_step(job, name: str):
 
 class ArtifactTenantSelectionTests(unittest.TestCase):
     def test_artifact_tenant_topic_selects_composite_workflows(self):
+        """Scenario: sc1. Relevant input: artifact=tenant context. Relevant output: selected workflow inventory. Expected outcome: tenant build/unit/changelog replace generic workflows."""
         workflows, _ = get_workflows(make_repo(language="python"))
         selected = {item["filename"]: item for item in workflows}
 
@@ -44,16 +53,17 @@ class ArtifactTenantSelectionTests(unittest.TestCase):
 
 
 class ArtifactTenantBuildTests(unittest.TestCase):
-    def test_build_has_three_path_scoped_standard_jobs(self):
+    def test_build_has_four_path_scoped_jobs(self):
+        """Scenario: sc2. Relevant input: tenant context. Relevant output: four build jobs, paths, versions, and publish guards. Expected outcome: distributions share typings tags and build in their respective directories."""
         workflow = artifact_tenant_build["function"](make_repo(), {})
 
         self.assertEqual(
-            {"build-ui", "build-etl", "build-typings"},
+            {"build-ui", "build-etl", "build-typings-pip", "build-typings-nodejs"},
             set(workflow["jobs"]),
         )
         ui = workflow["jobs"]["build-ui"]
         etl = workflow["jobs"]["build-etl"]
-        typings = workflow["jobs"]["build-typings"]
+        typings = workflow["jobs"]["build-typings-pip"]
         self.assertNotIn("strategy", ui)
         self.assertNotIn("strategy", etl)
         self.assertNotIn("strategy", typings)
@@ -81,22 +91,22 @@ class ArtifactTenantBuildTests(unittest.TestCase):
         typings_filter = named_step(typings, "Filter Changes")
         self.assertIn("typings/**", typings_filter["with"]["filters"])
         typings_version = named_step(typings, "Get Version")
-        self.assertEqual("typings-", typings_version["env"]["PREFIX"])
+        self.assertEqual("pyproject.toml", typings_version["env"]["VERSION_FILE"])
         self.assertEqual("typings", typings_version["working-directory"])
         self.assertEqual(
             "typings",
             named_step(typings, "Build Package")["working-directory"],
         )
         typings_publish = named_step(typings, "Publish Package")
-        self.assertEqual(
-            "github.ref_type == 'tag' && "
-            "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && "
-            "(steps.changes.outputs.src == 'true' || "
-            "startsWith(github.ref, 'refs/tags/typings-'))",
-            typings_publish["if"],
-        )
+        self.assertIn("startsWith(github.ref_name, 'typings-')", typings["if"])
+        self.assertIn("github.event_name == 'push'", typings_publish["if"])
+        self.assertIn("github.event_name == 'workflow_dispatch'", typings_publish["if"])
+        nodejs = workflow["jobs"]["build-typings-nodejs"]
+        self.assertEqual("typings/js", named_step(nodejs, "Build Package")["working-directory"])
+        self.assertNotIn("strategy", nodejs)
 
     def test_static_standard_files_are_written_without_dockerfiles(self):
+        """Scenario: sc3. Relevant input: empty tenant checkout. Relevant output: generated static files. Expected outcome: pip index files appear without Dockerfile replacement."""
         repo = make_repo()
         with tempfile.TemporaryDirectory() as repo_dir:
             write_workflow_file(repo, artifact_tenant_build, repo_dir)
@@ -112,6 +122,7 @@ class ArtifactTenantBuildTests(unittest.TestCase):
 
 class ArtifactTenantUnitTests(unittest.TestCase):
     def test_unit_jobs_apply_actions_config_only_as_requested(self):
+        """Scenario: sc4. Relevant input: custom runtime versions and ETL settings. Relevant output: unit jobs. Expected outcome: configuration stays scoped to its intended component."""
         custom_step = {"name": "Configured Step", "run": "echo configured"}
         workflow = artifact_tenant_unit["function"](
             make_repo(),
@@ -170,6 +181,7 @@ class ArtifactTenantUnitTests(unittest.TestCase):
             self.assertIn(".github/workflows/unit.yml", filters)
 
     def test_typings_typecheck_uses_underscored_repo_name(self):
+        """Scenario: sc5. Relevant input: tenant-mmm name. Relevant output: mypy target. Expected outcome: Python module name is tenant_mmm."""
         repo = RepoContext(
             source="github",
             repo_full_name="serv-c/tenant-mmm",
@@ -186,6 +198,7 @@ class ArtifactTenantUnitTests(unittest.TestCase):
 
 class ArtifactTenantChangelogTests(unittest.TestCase):
     def test_changelog_reuses_monorepo_flow_for_three_components(self):
+        """Scenario: sc6. Relevant input: UI, ETL, and typings directories. Relevant output: changelog matrix. Expected outcome: each component uses its matching release tag."""
         with tempfile.TemporaryDirectory() as repo_dir:
             for component in ["ui", "etl", "typings", "not-a-component"]:
                 os.makedirs(os.path.join(repo_dir, component))

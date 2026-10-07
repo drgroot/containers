@@ -20,6 +20,8 @@ if [ ! -f pip-options.txt ]; then
 fi
 
 .venv/bin/python -m pip install -r requirements.txt -r pip-options.txt
-.venv/bin/python -m pip install -r requirements-dev.txt -r pip-options.txt
-""",
+""" + (
+        ".venv/bin/python -m pip install -r requirements-dev.txt -r pip-options.txt\n"
+        if m.get("install_dev_dependencies", True) else ""
+    ),
 }

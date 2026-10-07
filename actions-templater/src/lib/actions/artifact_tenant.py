@@ -9,6 +9,9 @@ from src.lib import PYTHON_VERSION
 from src.lib.actions.build import merge_schedule
 from src.lib.actions.build.docker import docker, docker_on, node_docker
 from src.lib.actions.build.pip import pip_build
+from src.lib.actions.build.npm import npm_build
+from src.lib.actions.steps.actions.setup import python
+from src.lib.actions.steps.python import pip_install
 from src.lib.actions.common.semver import changelog
 from src.lib.actions.steps.filter import filter
 from src.lib.actions.test.npm import npm_test
@@ -50,11 +53,14 @@ def _scope_job(
     component: str,
     workflow_file: str,
     tag_prefix: str | None = None,
+    working_directory: str | None = None,
 ) -> Job:
     """Scope a standard single-repository job to one tenant component."""
     paths = [component_filter_path(ctx, component)]
-    if workflow_file == UNIT_WORKFLOW:
+    if workflow_file in {BUILD_WORKFLOW, UNIT_WORKFLOW}:
         paths.append(workflow_file)
+    if workflow_file == BUILD_WORKFLOW:
+        paths.append(".github/actions.json")
 
     change_filter = filter(ctx, {"filter_paths": paths})
     steps = job["steps"]
@@ -74,14 +80,16 @@ def _scope_job(
         condition = " || ".join(
             [condition, f"startsWith(github.ref, 'refs/tags/{tag_prefix}')"]
         )
+    if workflow_file == BUILD_WORKFLOW:
+        condition += " || github.event_name == 'workflow_dispatch'"
     condition = f"({condition})"
-    working_directory = component_path(ctx, component)
+    working_directory = working_directory or component_path(ctx, component)
 
     for step in steps[filter_index + 1 :]:
         step["if"] = " && ".join(
             [value for value in [step.get("if", ""), condition] if value]
         )
-        if "run" in step:
+        if "run" in step and not step.get("working-directory"):
             step["working-directory"] = working_directory
 
     return job
@@ -103,6 +111,7 @@ def _build_modifiers(
                 "artifactname": f"{tenant_name(ctx)}-{component}",
                 "context": path,
                 "dockerfile": os.path.join(path, m.get("dockerfile", "Dockerfile")),
+                "arm_enable": m.get(f"arm{component}", m.get("arm_enable", False)),
             }
         )
     return modifiers
@@ -114,7 +123,6 @@ def artifact_tenant_build_workflow(ctx: RepoContext, m: MODIFIERS) -> Workflow:
         "language": "node",
     }
     etl_modifiers = _build_modifiers(ctx, m, "etl", "docker")
-    typings_modifiers = _build_modifiers(ctx, m, "typings", "pip")
 
     ui = _scope_job(
         ctx,
@@ -130,33 +138,43 @@ def artifact_tenant_build_workflow(ctx: RepoContext, m: MODIFIERS) -> Workflow:
         BUILD_WORKFLOW,
         "etl-",
     )
-    typings = _scope_job(
-        ctx,
-        _job_from(pip_build, ctx, typings_modifiers, "build-pip"),
-        "typings",
-        BUILD_WORKFLOW,
-        "typings-",
-    )
-    typings_publish = next(
-        step for step in typings["steps"] if step.get("name") == "Publish Package"
-    )
-    typings_publish["if"] = (
-        "github.ref_type == 'tag' && "
-        "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && "
-        "(steps.changes.outputs.src == 'true' || "
-        "startsWith(github.ref, 'refs/tags/typings-'))"
-    )
-
+    pip_modifiers = {
+        **_build_modifiers(ctx, m, "typings", "pip"),
+        "version_file": "pyproject.toml",
+    }
+    compiler_dependencies = pip_install(ctx, {**m, "install_dev_dependencies": False})
+    compiler_dependencies["working-directory"] = "typings"
+    npm_modifiers = {
+        **_build_modifiers(ctx, m, "typings", "npm"),
+        "version_file": "../pyproject.toml",
+        "node_version": m.get("node_version", "24"),
+        "npm_cache_path": "typings/js/package-lock.json",
+        "npm_setup_steps": [python(ctx, m), compiler_dependencies],
+        "npm_install_command": "npm ci --ignore-scripts --registry=https://registry.npmjs.org",
+        "npm_version_directory": "typings",
+        "npm_version_command": '.venv/bin/python js/scripts/set_version.py "$GITHUB_REF"',
+        "npm_build_env": {"VIRTUAL_ENV": "${{ github.workspace }}/typings/.venv"},
+        "npm_build_command": 'export PATH="$VIRTUAL_ENV/bin:$PATH"\nnpm run build\nnpm run check:python\nnpm test',
+        "npm_auth_after_build": True,
+        "npm_publish_directory": "typings/js",
+        "npm_publish_tarball": True,
+    }
+    pip = _scope_job(ctx, _job_from(pip_build, ctx, pip_modifiers, "build-pip"), "typings", BUILD_WORKFLOW, "typings-")
+    node = _scope_job(ctx, _job_from(npm_build, ctx, npm_modifiers, "build-npm"), "typings", BUILD_WORKFLOW, "typings-", "typings/js")
+    for job, name in [(pip, "Build Typings Pip"), (node, "Build Typings Node.js")]:
+        job["name"] = name
+        job["if"] = "github.ref_type != 'tag' || startsWith(github.ref_name, 'typings-')"
+        job["permissions"] = {"contents": "read", "pull-requests": "read"}
     ui["name"] = "Build UI"
     etl["name"] = "Build ETL"
-    typings["name"] = "Build Typings"
     return {
         "name": "Build",
         "on": merge_schedule(docker_on, m.get("schedule")),
         "jobs": {
             "build-ui": ui,
             "build-etl": etl,
-            "build-typings": typings,
+            "build-typings-pip": pip,
+            "build-typings-nodejs": node,
         },
     }
 

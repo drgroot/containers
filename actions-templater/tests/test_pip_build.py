@@ -1,3 +1,6 @@
+"""Scenarios:
+- sc1 (normal): Standard pip jobs build/check the wheel and publish with Vault credentials.
+"""
 import unittest
 
 from src.com.repo import RepoContext
@@ -6,6 +9,11 @@ from src.lib.actions.build.pip import pip_build
 
 class PipBuildWorkflowTests(unittest.TestCase):
     def test_pip_publish_uses_vault_secrets(self):
+        """Scenario: sc1.
+        Relevant input: A standard pip repository context.
+        Relevant output: Build/check commands and publishing credential environment.
+        Expected outcome: Shared pip stages use Vault outputs and publish only release events.
+        """
         repo = RepoContext(
             source="github",
             repo_full_name="serv-c/python-package",
@@ -37,15 +45,11 @@ class PipBuildWorkflowTests(unittest.TestCase):
             step for step in steps if step.get("name") == "Publish Package"
         )
         self.assertTrue(publish_step["run"].startswith(".venv/bin/python -m twine "))
-        self.assertIn(
-            "-u${{ steps.pip_secrets.outputs.PYPI_USERNAME }}",
-            publish_step["run"],
-        )
-        self.assertIn(
-            "-p${{ steps.pip_secrets.outputs.PYPI_TOKEN }}",
-            publish_step["run"],
-        )
-        self.assertIn(
-            "--repository-url ${{ steps.pip_secrets.outputs.PYPI_URL }}",
-            publish_step["run"],
-        )
+        self.assertEqual({
+            "TWINE_USERNAME": "${{ steps.pip_secrets.outputs.PYPI_USERNAME }}",
+            "TWINE_PASSWORD": "${{ steps.pip_secrets.outputs.PYPI_TOKEN }}",
+            "TWINE_REPOSITORY_URL": "${{ steps.pip_secrets.outputs.PYPI_URL }}",
+        }, publish_step["env"])
+        self.assertIn("github.event_name == 'push'", publish_step["if"])
+        check_step = next(step for step in steps if step.get("name") == "Check Package")
+        self.assertEqual(".venv/bin/python -m twine check dist/*", check_step["run"])
