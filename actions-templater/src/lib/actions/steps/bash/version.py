@@ -1,7 +1,7 @@
 import os
 from typing import cast
 
-from src.com.actions.step import STEP, STEP_GENERATOR
+from src.com.actions.step import STEP, STEP_GENERATOR, RunStep
 from src.com.repo import MODIFIERS, RepoContext
 from src.com.repo.common import is_monorepo
 
@@ -21,7 +21,7 @@ def get_version_f(ctx: RepoContext, m: MODIFIERS) -> STEP:
     if is_monorepo(ctx, m):
         artifact_name = os.path.join(ctx.repo_owner, "${{ matrix.package }}")
 
-    step = {
+    step: RunStep = {
         "name": "Get Version",
         "id": "get_version",
         "env": {
@@ -73,6 +73,25 @@ echo current_version=$CURRENT_VERSION >> $GITHUB_ENV"""
                 "ARTIFACT_NAME": artifact_name,
             }
         )
+
+    if m.get("version_file"):
+        step["env"]["VERSION_FILE"] = str(m["version_file"])
+        step["run"] = """\
+set -euo pipefail
+CURRENT_VERSION=$(python -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "$VERSION_FILE")
+if [[ "$REF_LONG" == "refs/tags/${PREFIX}"* ]]; then
+    CURRENT_VERSION="${REF_LONG#refs/tags/${PREFIX}}"
+fi
+echo "current_version=$CURRENT_VERSION" >> "$GITHUB_ENV"
+"""
+        if m.get("artifact") == "npm":
+            step["run"] += """\
+if [[ "$CURRENT_VERSION" == *-* ]]; then
+    echo "npm_dist_tag=next" >> "$GITHUB_ENV"
+else
+    echo "npm_dist_tag=latest" >> "$GITHUB_ENV"
+fi
+"""
 
     return cast(STEP, step)
 

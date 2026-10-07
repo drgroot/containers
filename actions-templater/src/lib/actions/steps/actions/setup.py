@@ -30,6 +30,7 @@ nodejs: STEP_GENERATOR = lambda ctx, m: {
     "uses": f"actions/setup-node@{m.get('setup_node_version', SETUP_NODE_VERSION)}",
     "with": {
         "node-version": m.get("node_version", NODEJS_VERSION),
+        **({"cache": "npm", "cache-dependency-path": m["npm_cache_path"]} if m.get("npm_cache_path") else {}),
     },
 }
 

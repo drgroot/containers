@@ -8,14 +8,27 @@ runs on changes under `typings/**`, `build.yml`, or `.github/actions.json`,
 typings tags, and manual runs. UI/ETL builds also run after configuration or
 workflow changes, so architecture changes take effect on the next pipeline run.
 
-The tenant repository supplies `typings/pyproject.toml`, its Python requirements,
-and the JavaScript build package under `typings/js/`. The JavaScript package must
-provide `build`, `check:python`, and `test` npm scripts, a package lockfile, and
-`js/scripts/set_version.py` relative to `typings/`. That version script sets the
-Python and npm versions together from the tag. The Node.js job compiles the local
-Python sources and publishes the npm tarball; it does not fetch a typings adapter
-or a published tenant wheel. Python/Node setup and Vault action settings follow
-the normal actions-maker configuration.
+The pip typings job reuses the standard pip generator: dependency installation,
+version setup, build, distribution checks, Vault credentials, and publication.
+Only its folder, release prefix, and workflow guards are scoped to the tenant.
+It reads `typings/pyproject.toml` for non-release builds and needs no JavaScript
+package or compiler script. Both package generators support `version_file` to
+read a committed Python project version instead of the Docker `latest` label.
+
+The Node.js job reuses the standard npm generator, including setup, registry
+login, dependency installation, version setup, build, packing, and publication.
+Its extra settings install the Python compiler dependencies, run the compiler
+and parity tests, delay registry credentials until after the public dependency
+build, and publish a tarball from `typings/js/` instead of a `dist` package root.
+These are reusable npm generator options rather than a separate tenant pipeline.
+
+The tenant repository supplies its Python requirements and the JavaScript build
+package under `typings/js/`. The JavaScript package provides `build`, `check:python`,
+and `test` npm scripts, a package lockfile, and `js/scripts/set_version.py` relative
+to `typings/`. The Node.js version setup uses that script to synchronize its Python
+and npm manifests before compilation. The library compiles local Python sources
+without fetching a typings adapter or a published tenant wheel. Python/Node setup
+and Vault action settings follow the normal actions-maker configuration.
 
 Enable ARM64 alongside x86/AMD64 for the tenant UI and ETL independently in the
 repository's `.github/actions.json`:

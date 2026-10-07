@@ -90,19 +90,19 @@ class ArtifactTenantBuildTests(unittest.TestCase):
 
         typings_filter = named_step(typings, "Filter Changes")
         self.assertIn("typings/**", typings_filter["with"]["filters"])
-        typings_version = named_step(typings, "Set Python Release Version")
-        self.assertIn('js/scripts/set_version.py "$REF_LONG"', typings_version["run"])
+        typings_version = named_step(typings, "Get Version")
+        self.assertEqual("pyproject.toml", typings_version["env"]["VERSION_FILE"])
         self.assertEqual("typings", typings_version["working-directory"])
         self.assertEqual(
             "typings",
-            named_step(typings, "Build and Check Python Distribution")["working-directory"],
+            named_step(typings, "Build Package")["working-directory"],
         )
-        typings_publish = named_step(typings, "Publish Python Package")
-        self.assertIn("startsWith(github.ref_name, 'typings-')", typings_publish["if"])
+        typings_publish = named_step(typings, "Publish Package")
+        self.assertIn("startsWith(github.ref_name, 'typings-')", typings["if"])
         self.assertIn("github.event_name == 'push'", typings_publish["if"])
         self.assertIn("github.event_name == 'workflow_dispatch'", typings_publish["if"])
         nodejs = workflow["jobs"]["build-typings-nodejs"]
-        self.assertEqual("typings/js", named_step(nodejs, "Compile All Python Modules to JavaScript and Declarations")["working-directory"])
+        self.assertEqual("typings/js", named_step(nodejs, "Build Package")["working-directory"])
         self.assertNotIn("strategy", nodejs)
 
     def test_static_standard_files_are_written_without_dockerfiles(self):

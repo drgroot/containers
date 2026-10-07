@@ -8,7 +8,10 @@ from src.com.repo import CONTEXT_MATCHERS, MODIFIERS, RepoContext
 from src.lib import PYTHON_VERSION
 from src.lib.actions.build import merge_schedule
 from src.lib.actions.build.docker import docker, docker_on, node_docker
-from src.lib.actions.build.tenant_typings import tenant_typings_jobs
+from src.lib.actions.build.pip import pip_build
+from src.lib.actions.build.npm import npm_build
+from src.lib.actions.steps.actions.setup import python
+from src.lib.actions.steps.python import pip_install
 from src.lib.actions.common.semver import changelog
 from src.lib.actions.steps.filter import filter
 from src.lib.actions.test.npm import npm_test
@@ -50,6 +53,7 @@ def _scope_job(
     component: str,
     workflow_file: str,
     tag_prefix: str | None = None,
+    working_directory: str | None = None,
 ) -> Job:
     """Scope a standard single-repository job to one tenant component."""
     paths = [component_filter_path(ctx, component)]
@@ -79,13 +83,13 @@ def _scope_job(
     if workflow_file == BUILD_WORKFLOW:
         condition += " || github.event_name == 'workflow_dispatch'"
     condition = f"({condition})"
-    working_directory = component_path(ctx, component)
+    working_directory = working_directory or component_path(ctx, component)
 
     for step in steps[filter_index + 1 :]:
         step["if"] = " && ".join(
             [value for value in [step.get("if", ""), condition] if value]
         )
-        if "run" in step:
+        if "run" in step and not step.get("working-directory"):
             step["working-directory"] = working_directory
 
     return job
@@ -134,6 +138,33 @@ def artifact_tenant_build_workflow(ctx: RepoContext, m: MODIFIERS) -> Workflow:
         BUILD_WORKFLOW,
         "etl-",
     )
+    pip_modifiers = {
+        **_build_modifiers(ctx, m, "typings", "pip"),
+        "version_file": "pyproject.toml",
+    }
+    compiler_dependencies = pip_install(ctx, {**m, "install_dev_dependencies": False})
+    compiler_dependencies["working-directory"] = "typings"
+    npm_modifiers = {
+        **_build_modifiers(ctx, m, "typings", "npm"),
+        "version_file": "../pyproject.toml",
+        "node_version": m.get("node_version", "24"),
+        "npm_cache_path": "typings/js/package-lock.json",
+        "npm_setup_steps": [python(ctx, m), compiler_dependencies],
+        "npm_install_command": "npm ci --ignore-scripts --registry=https://registry.npmjs.org",
+        "npm_version_directory": "typings",
+        "npm_version_command": '.venv/bin/python js/scripts/set_version.py "$GITHUB_REF"',
+        "npm_build_env": {"VIRTUAL_ENV": "${{ github.workspace }}/typings/.venv"},
+        "npm_build_command": 'export PATH="$VIRTUAL_ENV/bin:$PATH"\nnpm run build\nnpm run check:python\nnpm test',
+        "npm_auth_after_build": True,
+        "npm_publish_directory": "typings/js",
+        "npm_publish_tarball": True,
+    }
+    pip = _scope_job(ctx, _job_from(pip_build, ctx, pip_modifiers, "build-pip"), "typings", BUILD_WORKFLOW, "typings-")
+    node = _scope_job(ctx, _job_from(npm_build, ctx, npm_modifiers, "build-npm"), "typings", BUILD_WORKFLOW, "typings-", "typings/js")
+    for job, name in [(pip, "Build Typings Pip"), (node, "Build Typings Node.js")]:
+        job["name"] = name
+        job["if"] = "github.ref_type != 'tag' || startsWith(github.ref_name, 'typings-')"
+        job["permissions"] = {"contents": "read", "pull-requests": "read"}
     ui["name"] = "Build UI"
     etl["name"] = "Build ETL"
     return {
@@ -142,7 +173,8 @@ def artifact_tenant_build_workflow(ctx: RepoContext, m: MODIFIERS) -> Workflow:
         "jobs": {
             "build-ui": ui,
             "build-etl": etl,
-            **tenant_typings_jobs(ctx, m),
+            "build-typings-pip": pip,
+            "build-typings-nodejs": node,
         },
     }
 

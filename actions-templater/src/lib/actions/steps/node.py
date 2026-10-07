@@ -23,6 +23,6 @@ npm set "//npm.yusufali.ca/:_auth" "${encoded_auth}"
 
 npm_install: STEP_GENERATOR = lambda ctx, m: {
     "name": "Install dependencies",
-    "run": "npm install",
+    "run": m.get("npm_install_command", "npm install"),
     "working-directory": "",
 }

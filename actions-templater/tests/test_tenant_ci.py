@@ -112,22 +112,24 @@ class TenantCiTest(unittest.TestCase):
         for job in (pip, node):
             self.assertIn("startsWith(github.ref_name, 'typings-')", job["if"])
             version = next(step for step in job["steps"] if step.get("id") == "get_version")
-            self.assertIn('python js/scripts/set_version.py "$REF_LONG"', version["run"])
-            self.assertEqual("typings", version["working-directory"])
+            expected_path = "pyproject.toml" if job is pip else "../pyproject.toml"
+            self.assertEqual(expected_path, version["env"]["VERSION_FILE"])
+            self.assertIn("tomllib", version["run"])
+            self.assertEqual("typings" if job is pip else "typings/js", version["working-directory"])
             setup = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
             self.assertEqual("3.12", setup["with"]["python-version"])
-            secrets = next(step for step in job["steps"] if step.get("id") == "publish_secrets")
+            secrets = next(step for step in job["steps"] if step.get("id") in {"pip_secrets", "npm_secrets"})
             self.assertIn("github.ref_type == 'tag'", secrets["if"])
             filters = named(job, "Filter Changes")["with"]["filters"]
             self.assertIn("typings/**", filters)
             self.assertIn(".github/workflows/build.yml", filters)
             self.assertIn(".github/actions.json", filters)
             for step in job["steps"][2:]:
-                if step.get("id") != "publish_secrets" and not step.get("name", "").startswith("Publish"):
+                if step.get("name") != "Filter Changes":
                     self.assertIn("github.event_name == 'workflow_dispatch'", step["if"])
         self.assertFalse(any(step.get("uses", "").startswith("actions/setup-node@") for step in pip["steps"]))
-        pip_secrets = next(step for step in pip["steps"] if step.get("id") == "publish_secrets")["with"]["secrets"]
-        node_secrets = next(step for step in node["steps"] if step.get("id") == "publish_secrets")["with"]["secrets"]
+        pip_secrets = next(step for step in pip["steps"] if step.get("id") in {"pip_secrets", "npm_secrets"})["with"]["secrets"]
+        node_secrets = next(step for step in node["steps"] if step.get("id") in {"pip_secrets", "npm_secrets"})["with"]["secrets"]
         self.assertIn("/iac/pip ", pip_secrets)
         self.assertNotIn("/iac/npm ", pip_secrets)
         self.assertIn("/iac/npm ", node_secrets)
@@ -135,14 +137,22 @@ class TenantCiTest(unittest.TestCase):
         setup = next(step for step in node["steps"] if step.get("uses", "").startswith("actions/setup-node@"))
         self.assertEqual("22", setup["with"]["node-version"])
         self.assertEqual("typings/js/package-lock.json", setup["with"]["cache-dependency-path"])
-        build = named(node, "Compile All Python Modules to JavaScript and Declarations")
+        build = named(node, "Build Package")
         self.assertEqual("typings/js", build["working-directory"])
         self.assertIn("npm run build", build["run"])
         self.assertIn("npm test", build["run"])
         self.assertNotIn("typings-adapter", build["run"])
-        publish = named(node, "Publish JavaScript Package at the Same Version")
+        publish = named(node, "Publish Package")
         self.assertIn('npm publish "$NPM_TARBALL"', publish["run"])
         self.assertIn("npm.yusufali.ca", publish["run"])
+        self.assertEqual("typings", named(node, "Install pip dependencies")["working-directory"])
+        self.assertNotIn("requirements-dev.txt", named(node, "Install pip dependencies")["run"])
+        self.assertEqual("typings", named(node, "Setup Version")["working-directory"])
+        self.assertIn("set_version.py", named(node, "Setup Version")["run"])
+        stage_names = [step.get("name") for step in node["steps"]]
+        self.assertLess(stage_names.index("Build Package"), stage_names.index("Login to NPM"))
+        self.assertLess(stage_names.index("Pack Package"), stage_names.index("Login to NPM"))
+        self.assertIn("github.ref_type == 'tag'", named(node, "Login to NPM")["if"])
 
     def test_generated_file(self):
         """Scenario: sc6.
