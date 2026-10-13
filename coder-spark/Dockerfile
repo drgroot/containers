@@ -86,7 +86,7 @@ RUN mkdir -p /opt/duckdb && \
 # install python
 RUN git clone https://github.com/pyenv/pyenv.git /opt/pyenv
 RUN eval "$(pyenv init -)" && \
-    pyenv install 3.12 && \
+    pyenv install 3.15 && \
     echo 'export PATH="$PYENV_ROOT/bin:$PATH"' > /etc/profile.d/pyenv.sh && \
     echo '' >> /etc/profile.d/pyenv.sh && \
     echo 'eval "$(pyenv init -)"' >> /etc/profile.d/pyenv.sh
