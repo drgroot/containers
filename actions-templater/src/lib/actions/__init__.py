@@ -9,6 +9,7 @@ from src.lib.actions.artifact_tenant import (
 from src.lib.actions.build.docker import docker, node_docker, python_docker
 from src.lib.actions.build.npm import npm_build
 from src.lib.actions.build.pip import pip_build
+from src.lib.actions.build.terraform import terraform_build
 from src.lib.actions.common.agent import (
     agent_embed_issue,
     agent_embed_issue_servc,
@@ -32,6 +33,7 @@ GITHUB_ACTIONS_INVENTORY: List[WORKFLOW_GENERATOR] = [
     issue_agent_servc,
     python_docker,
     pip_build,
+    terraform_build,
     npm_build,
     python_pip_options_static,
     docker,

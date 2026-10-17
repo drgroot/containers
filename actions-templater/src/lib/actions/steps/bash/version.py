@@ -49,7 +49,7 @@ echo repository=$REPO >> $GITHUB_ENV
 echo current_version=$CURRENT_VERSION >> $GITHUB_ENV""",
     }
 
-    if is_docker_build:
+    if is_docker_build or m.get("artifact") == "terraform":
         step["run"] = """\
 CURRENT_VERSION="0.0.1"
 if [[ "$REF_LONG" == "refs/tags/${PREFIX}"[0-9.-]* ]]; then
