@@ -1,3 +1,4 @@
+from src.lib.actions.steps.npm_workspace import workspace_defaults, with_workspace_defaults
 from src.com.repo import MODIFIERS, RepoContext
 from src.com.repo.common import is_monorepo
 from src.lib.actions.steps.actions.vault import process_vault_secrets
@@ -10,6 +11,7 @@ NPM_VAULT_PATH = "servc/data/iac/npm"
 
 
 def make_npm_test(ctx: RepoContext, m: MODIFIERS):
+    m = workspace_defaults(ctx, m)
     npm_secrets, npm_vault = process_vault_secrets(
         NPM_VAULT_STEP_ID,
         [
@@ -37,15 +39,10 @@ def make_npm_test(ctx: RepoContext, m: MODIFIERS):
         npm_login(ctx, npm_modifiers),
         npm_install(ctx, m),
         {
-            "name": "Settle Depends",
-            "working-directory": "",
-            "run": "npm run-script merge" if is_monorepo(ctx, m) else "echo hi",
-        },
-        {
             "name": "Run Tests",
             "working-directory": "",
             "run": (
-                "npm test ${{ matrix.package }}" if is_monorepo(ctx, m) else "npm test"
+                "npm run check:dependencies\nnpm test ${{ matrix.package }}" if is_monorepo(ctx, m) else "npm test"
             ),
         },
     ]
@@ -58,3 +55,5 @@ npm_test = make_test(
     },
     negative_matchers={"artifact": ["tenant"]},
 )
+
+npm_test = with_workspace_defaults(npm_test, tests=True)
