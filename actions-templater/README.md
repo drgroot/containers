@@ -56,3 +56,14 @@ Run the generator tests from `actions-templater`:
 ```sh
 python -m unittest discover -s tests -p 'test_*.py'
 ```
+
+## npm monorepo dependency installation
+
+Generated npm monorepo build and unit-test workflows run `npm install` at the
+repository root. This allows package manifests to change without requiring a
+matching committed lockfile: npm reconciles the lockfile in the CI checkout.
+CI does not commit the updated lockfile back to the repository. Dependency
+compatibility checks still run before builds and tests.
+
+An explicit `npm_install_command` in `.github/actions.json` overrides this default,
+including `npm ci` for repositories that require strict lockfile synchronization.

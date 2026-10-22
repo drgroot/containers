@@ -12,7 +12,7 @@ def workspace_defaults(ctx, m, *, tests=False):
         return m
     settings = dict(m)
     settings.setdefault("node_version", "24")
-    settings.setdefault("npm_install_command", "npm ci")
+    settings.setdefault("npm_install_command", "npm install")
     libraries = get_monorepo_modules(ctx, m)
     settings.setdefault("filter_paths", [
         *[(Path(m.get("monorepo-folder", "")) / folder / "**").as_posix() for folder in libraries],

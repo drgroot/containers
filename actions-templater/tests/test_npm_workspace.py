@@ -1,5 +1,6 @@
 """Scenarios:
-- Normal: workspace libraries build from the root and publish their own tagged dist.
+- Normal: workspace libraries install with manifest/lockfile reconciliation, build
+  from the root, and publish their own tagged dist.
 - Normal: applications join tests, while shared files and siblings trigger checks.
 - Edge: explicit module/command overrides and non-npm directory discovery survive.
 - Edge: private packages and unrelated directories do not become release jobs.
@@ -40,14 +41,15 @@ class NpmWorkspaceTests(unittest.TestCase):
 
     def test_build_root_and_release_guard(self):
         """Normal input: workspace with mismatched folder/name; expect root commands,
-        release helper after build, and publication limited to the matching tag.
+        npm install for manifest/lockfile reconciliation, release helper after build,
+        and publication limited to the matching tag.
         Observed workflow fields are compared directly with those expectations.
         """
         job = npm_build["function"](self.repo, {"mono": True})["jobs"]["build-npm"]
         self.assertEqual(job["strategy"]["matrix"]["package"], ["servc-api", "servc-chart"])
         steps = {step.get("name"): step for step in job["steps"]}
         self.assertEqual(steps["Login to NPM"]["working-directory"], ".")
-        self.assertEqual(steps["Install dependencies"]["run"], "npm ci")
+        self.assertEqual(steps["Install dependencies"]["run"], "npm install")
         self.assertEqual(steps["Build Package"]["run"],
                          "npm run check:dependencies\nnpm run build -- ${{ matrix.package }}")
         release = steps["Locate built package and set release version"]
@@ -73,7 +75,7 @@ class NpmWorkspaceTests(unittest.TestCase):
         self.assertEqual(job["strategy"]["matrix"]["package"], ["servc-api", "servc-chart", "ui"])
         steps = {step.get("name"): step for step in job["steps"]}
         self.assertEqual(steps["Login to NPM"]["working-directory"], ".")
-        self.assertEqual(steps["Install dependencies"]["run"], "npm ci")
+        self.assertEqual(steps["Install dependencies"]["run"], "npm install")
         self.assertEqual(steps["Run Tests"]["run"], "npm run check:dependencies\nnpm test ${{ matrix.package }}")
         self.assertNotIn("working-directory", steps["Run Tests"])
         filters = steps["Filter Changes"]["with"]["filters"]
