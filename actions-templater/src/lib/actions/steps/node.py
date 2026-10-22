@@ -2,6 +2,7 @@ from src.com.actions.step import STEP_GENERATOR
 
 npm_login: STEP_GENERATOR = lambda ctx, m: {
     "name": "Login to NPM",
+    "working-directory": ".",
     "env": {
         "NPMPASS": m.get("npm_pass", "${{ secrets.NPMPASS }}"),
         "NPMUSER": m.get("npm_user", "${{ secrets.NPMUSER }}"),

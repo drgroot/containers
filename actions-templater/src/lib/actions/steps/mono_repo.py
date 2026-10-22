@@ -1,4 +1,6 @@
 import os
+import json
+from pathlib import Path
 from typing import List
 
 from src.com.actions.step import STEP
@@ -14,6 +16,20 @@ def get_monorepo_modules(ctx: RepoContext, m: MODIFIERS) -> List[str]:
         return configured_modules
 
     module_path = os.path.join(ctx.local_folder, m.get("monorepo-folder", ""))
+    manifest = Path(module_path) / "package.json"
+    if manifest.is_file():
+        workspaces = json.loads(manifest.read_text()).get("workspaces")
+        if isinstance(workspaces, dict):
+            workspaces = workspaces.get("packages")
+        if isinstance(workspaces, list):
+            root = Path(module_path)
+            modules = set()
+            for pattern in workspaces:
+                for folder in root.glob(pattern):
+                    package = folder / "package.json"
+                    if package.is_file() and not json.loads(package.read_text()).get("private", False):
+                        modules.add(folder.relative_to(root).as_posix())
+            return sorted(modules)
     return get_children(module_path)
 
 
