@@ -1,41 +1,45 @@
-"""Defaults for independent npm libraries sharing root CI scripts and a lockfile."""
+"""CI defaults for independently installed npm packages in a monorepo."""
 
 import json
 from pathlib import Path
 
 from src.com.repo.common import is_monorepo
-from src.lib.actions.steps.mono_repo import get_monorepo_modules
+from src.lib.actions.steps.mono_repo import get_monorepo_modules, get_working_path
 
 
 def workspace_defaults(ctx, m, *, tests=False):
     if not is_monorepo(ctx, m):
         return m
     settings = dict(m)
+    directory = get_working_path(ctx, m)
     settings.setdefault("node_version", "24")
-    settings.setdefault("npm_install_command", "npm install")
-    libraries = get_monorepo_modules(ctx, m)
+    settings.setdefault("npm_working_directory", directory)
+    settings.setdefault("npm_install_command", "npm install --prefix . --workspaces=false --include=dev")
     settings.setdefault("filter_paths", [
-        *[(Path(m.get("monorepo-folder", "")) / folder / "**").as_posix() for folder in libraries],
-        "common-ci/**", "package.json", "package-lock.json", "angular.json",
-        "tsconfig*.json", "karma.conf.js", ".npmrc", ".github/actions.json",
-        ".github/workflows/**",
+        f"{directory}/**", "common-ci/**", ".github/actions.json", ".github/workflows/**",
     ])
     if tests:
         angular = Path(ctx.local_folder) / "angular.json"
         projects = json.loads(angular.read_text()).get("projects", {}) if angular.is_file() else {}
-        applications = [name for name, project in projects.items()
+        applications = [project["root"] for project in projects.values()
                         if project.get("projectType") == "application"
-                        and "test" in project.get("architect", project.get("targets", {}))]
+                        and "test" in project.get("architect", project.get("targets", {}))
+                        and project.get("root")
+                        and (Path(ctx.local_folder) / project["root"] / "package.json").is_file()]
         extra = m.get("npm_test_projects", applications)
-        settings["monorepo-modules"] = list(dict.fromkeys([*libraries, *extra]))
-        # Application sources can also consume every sibling library.
-        settings["filter_paths"] = [*settings["filter_paths"],
-            *[f"{project['root']}/**" for project in projects.values()
-              if project.get("projectType") == "application" and project.get("root")]]
+        settings["monorepo-modules"] = list(dict.fromkeys([*get_monorepo_modules(ctx, m), *extra]))
     return settings
 
 
 def with_workspace_defaults(generator, *, tests=False):
     original = generator["function"]
-    generator["function"] = lambda ctx, m: original(ctx, workspace_defaults(ctx, m, tests=tests))
+    def generate(ctx, m):
+        workflow = original(ctx, workspace_defaults(ctx, m, tests=tests))
+        if is_monorepo(ctx, m):
+            for job in workflow["jobs"].values():
+                if "strategy" in job:
+                    job["strategy"]["fail-fast"] = False
+        return workflow
+
+    generator["function"] = generate
     return generator

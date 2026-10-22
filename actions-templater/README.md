@@ -59,11 +59,18 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 ## npm monorepo dependency installation
 
-Generated npm monorepo build and unit-test workflows run `npm install` at the
-repository root. This allows package manifests to change without requiring a
-matching committed lockfile: npm reconciles the lockfile in the CI checkout.
-CI does not commit the updated lockfile back to the repository. Dependency
-compatibility checks still run before builds and tests.
+Generated npm monorepo jobs use the selected package directory (`monorepo-folder` plus `matrix.package`) for authentication, installation, build, and tests:
 
-An explicit `npm_install_command` in `.github/actions.json` overrides this default,
-including `npm ci` for repositories that require strict lockfile synchronization.
+```sh
+npm install --prefix . --workspaces=false --include=dev
+npm --prefix . --workspaces=false run build
+npm --prefix . --workspaces=false test
+```
+
+The explicit prefix prevents discovery of a parent npm workspace. Each library installs its own development tools and published peers. No root installation, sibling build, root dependency check, or `common-ci/release.mjs` invocation is required. Missing or incompatible published peers fail only the packages that consume them. Manifests need package-local `build` and `test` scripts; shared configs may be symlinked from `common-ci`.
+
+After building, matching package tags run `npm --prefix dist --workspaces=false version "$TAG" --no-git-tag-version --allow-same-version` inside the selected package. Only the built manifest is versioned; publication runs in `<package>/dist` and remains restricted to the matching tag. Package names need not match folder names.
+
+Change filters select the package directory, `common-ci/**`, and workflow configuration. Matrix fail-fast is disabled so a failed package does not cancel unrelated jobs. Build matrices still discover publishable root npm workspaces (or honor `monorepo-modules`). Test matrices additionally include Angular application directories with their own `package.json` and a test target, such as `demo/`; they use directory names, not Angular project names. `npm_test_projects` can explicitly select additional package directories.
+
+`npm_install_command`, `npm_build_command`, `npm_version_command`, and `npm_publish_directory` remain overrideable. Custom commands should retain the explicit prefix and workspace disabling; for strict package lockfiles use `npm ci --prefix . --workspaces=false --include=dev`. Single-package and tenant workflows keep their existing behavior.
