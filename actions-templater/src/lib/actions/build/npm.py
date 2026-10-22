@@ -47,18 +47,19 @@ def make_npm_build(ctx: RepoContext, m: MODIFIERS) -> list[STEP]:
         })
     steps.append({
         "name": "Build Package",
-        "working-directory": "",
+        "working-directory": m.get("npm_working_directory", ""),
         "env": {"NODE_ENV": "production", **m.get("npm_build_env", {})},
-        "run": m.get("npm_build_command", "npm run check:dependencies\nnpm run build -- ${{ matrix.package }}" if mono else "npm run-script build"),
+        "run": m.get("npm_build_command", "npm --prefix . --workspaces=false run build" if mono else "npm run-script build"),
     })
     if mono:
         steps.append({
-            "name": "Locate built package and set release version",
-            "working-directory": "",
-            "env": {"PROJECT": "${{ matrix.package }}", "RELEASE_VERSION": "${{ env.current_version }}"},
-            "run": m.get("npm_version_command", "node common-ci/release.mjs"),
+            "name": "Set built package release version",
+            "if": publish_if,
+            "working-directory": m.get("npm_version_directory", m["npm_working_directory"]),
+            "env": {"TAG": "${{ env.current_version }}"},
+            "run": m.get("npm_version_command", 'npm --prefix dist --workspaces=false version "$TAG" --no-git-tag-version --allow-same-version'),
         })
-    publish_directory = m.get("npm_publish_directory", "${{ env.package_dir }}" if mono else "dist")
+    publish_directory = m.get("npm_publish_directory", f"{m['npm_working_directory']}/dist" if mono else "dist")
     if m.get("npm_publish_tarball", False):
         steps.append({
             "id": "npm_package",
@@ -67,7 +68,7 @@ def make_npm_build(ctx: RepoContext, m: MODIFIERS) -> list[STEP]:
             "run": '''set -euo pipefail
 npm pack --pack-destination "$RUNNER_TEMP" --json > "$RUNNER_TEMP/npm-pack.json"
 filename=$(node --input-type=module -e 'import fs from "node:fs"; console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8"))[0].filename)' "$RUNNER_TEMP/npm-pack.json")
-echo "tarball=$RUNNER_TEMP/$filename" >> "$GITHUB_OUTPUT"''',
+echo "tarball=$RUNNER_TEMP/$filename" >> "$GITHUB_OUTPUT"'''.replace("npm pack", "npm --prefix . --workspaces=false pack" if mono else "npm pack"),
         })
     if auth_after_build:
         steps.extend(auth)
@@ -75,14 +76,14 @@ echo "tarball=$RUNNER_TEMP/$filename" >> "$GITHUB_OUTPUT"''',
         "name": "Publish Package",
         "if": publish_if,
         "working-directory": publish_directory,
-        "run": "npm publish --registry=https://npm.yusufali.ca",
+        "run": ("npm --prefix . --workspaces=false" if mono else "npm") + " publish --registry=https://npm.yusufali.ca",
     }
     if m.get("npm_publish_tarball", False):
         publish["env"] = {
             "NPM_TARBALL": "${{ steps.npm_package.outputs.tarball }}",
             "NPM_DIST_TAG": "${{ env.npm_dist_tag }}",
         }
-        publish["run"] = 'npm publish "$NPM_TARBALL" --registry=https://npm.yusufali.ca --tag "$NPM_DIST_TAG"'
+        publish["run"] = ("npm --prefix . --workspaces=false" if mono else "npm") + ' publish "$NPM_TARBALL" --registry=https://npm.yusufali.ca --tag "$NPM_DIST_TAG"'
     steps.append(publish)
     return steps
 

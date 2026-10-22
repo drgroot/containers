@@ -40,9 +40,9 @@ def make_npm_test(ctx: RepoContext, m: MODIFIERS):
         npm_install(ctx, m),
         {
             "name": "Run Tests",
-            "working-directory": "",
+            "working-directory": m.get("npm_working_directory", ""),
             "run": (
-                "npm run check:dependencies\nnpm test ${{ matrix.package }}" if is_monorepo(ctx, m) else "npm test"
+                "npm --prefix . --workspaces=false test" if is_monorepo(ctx, m) else "npm test"
             ),
         },
     ]
